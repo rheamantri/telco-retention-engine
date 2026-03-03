@@ -1,0 +1,23 @@
+{
+  "margin_rate": 0.6,
+  "expected_future_months": 12,
+
+  "costs": {
+    "discount_offer": 40,
+    "contract_incentive": 60,
+    "support_intervention": 15,
+    "service_quality_check": 10,
+    "autopay_nudge": 5
+  },
+
+  "risk_weights": {
+    "w30": 0.6,
+    "w60": 0.3,
+    "w90": 0.1
+  },
+
+  "value_segments": {
+    "high_value_clv": 1000,
+    "mid_value_clv": 400
+  }
+}
