@@ -1,14 +1,18 @@
+# Python
 __pycache__/
 *.pyc
-.venv/
-.env
+.DS_Store
 
-# v2 data & artifacts
-v2_upgrade/data/raw/
-v2_upgrade/data/processed/
+# Virtual environments
+.venv/
+env/
+
+# Data + artifacts
 v2_upgrade/models/
 v2_upgrade/artifacts/
-*.joblib
+v2_upgrade/data/raw/
+v2_upgrade/data/processed/
 
-# mac
-.DS_Store
+# ML artifacts
+*.joblib
+*.pkl
