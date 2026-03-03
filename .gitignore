@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+
+# v2 data & artifacts
+v2_upgrade/data/raw/
+v2_upgrade/data/processed/
+v2_upgrade/models/
+v2_upgrade/artifacts/
+*.joblib
+
+# mac
+.DS_Store
