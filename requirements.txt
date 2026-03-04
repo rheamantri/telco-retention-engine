@@ -10,3 +10,4 @@ plotly
 streamlit
 pandas
 numpy
+seaborn==0.13.2
