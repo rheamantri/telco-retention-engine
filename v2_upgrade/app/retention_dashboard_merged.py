@@ -106,9 +106,27 @@ def load_test_sets():
 
 @st.cache_data
 def load_retention_table():
-    if not RET_TABLE_V2_PATH.exists():
-        st.error("Missing retention_table_v2.csv. Run: python -m v2_upgrade.scripts.06_build_retention_table_v2")
+    if RET_TABLE_V2_PATH.exists():
+        return pd.read_csv(RET_TABLE_V2_PATH)
+
+    st.warning("retention_table_v2.csv not found. Building v2 retention table on server (one-time)...")
+
+    import subprocess, sys
+
+    cmd = [sys.executable, "-m", "v2_upgrade.scripts.06_build_retention_table_v2"]
+    res = subprocess.run(cmd, capture_output=True, text=True)
+
+    if res.returncode != 0:
+        st.error("Failed to build retention_table_v2.csv on server.")
+        st.code(res.stdout)
+        st.code(res.stderr)
         st.stop()
+
+    if not RET_TABLE_V2_PATH.exists():
+        st.error("Build script ran but retention_table_v2.csv still not found.")
+        st.code(res.stdout)
+        st.stop()
+
     return pd.read_csv(RET_TABLE_V2_PATH)
 
 @st.cache_data
