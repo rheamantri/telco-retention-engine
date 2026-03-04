@@ -71,9 +71,28 @@ st.title("📡 Telco Retention Command Center (Merged v1 + v2)")
 # -----------------------------
 @st.cache_resource
 def load_pipeline():
-    if not PIPE_PATH.exists():
-        st.error(f"Missing model: {PIPE_PATH}")
+    if PIPE_PATH.exists():
+        return joblib.load(PIPE_PATH)
+
+    st.warning("Model not found. Training churn model on server (one-time)...")
+
+    # train via your existing v1-style training script inside v2
+    import subprocess, sys
+
+    cmd = [sys.executable, "-m", "v2_upgrade.scripts.02_train_churn_model_v1style"]
+    res = subprocess.run(cmd, capture_output=True, text=True)
+
+    if res.returncode != 0:
+        st.error("Training failed on server.")
+        st.code(res.stdout)
+        st.code(res.stderr)
         st.stop()
+
+    if not PIPE_PATH.exists():
+        st.error("Training ran but model still not found.")
+        st.code(res.stdout)
+        st.stop()
+
     return joblib.load(PIPE_PATH)
 
 @st.cache_data
