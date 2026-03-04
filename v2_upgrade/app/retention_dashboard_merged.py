@@ -105,6 +105,7 @@ def load_test_sets():
     return X, y
 
 @st.cache_data
+@st.cache_data
 def load_retention_table():
     if RET_TABLE_V2_PATH.exists():
         return pd.read_csv(RET_TABLE_V2_PATH)
@@ -113,18 +114,31 @@ def load_retention_table():
 
     import subprocess, sys
 
-    cmd = [sys.executable, "-m", "v2_upgrade.scripts.06_build_retention_table_v2"]
-    res = subprocess.run(cmd, capture_output=True, text=True)
+    def run_or_stop(cmd, title):
+        res = subprocess.run(cmd, capture_output=True, text=True)
+        if res.returncode != 0:
+            st.error(f"{title} failed.")
+            st.code(res.stdout)
+            st.code(res.stderr)
+            st.stop()
+        return res
 
-    if res.returncode != 0:
-        st.error("Failed to build retention_table_v2.csv on server.")
-        st.code(res.stdout)
-        st.code(res.stderr)
-        st.stop()
+    # 1) Ensure timing models exist
+    required = [MODELS_DIR / f"timing_model_{w}d.joblib" for w in [30, 60, 90]]
+    if not all(p.exists() for p in required):
+        st.info("Timing models missing. Training churn timing models (30/60/90d)...")
+        run_or_stop([sys.executable, "-m", "v2_upgrade.scripts.04_train_churn_timing"], "Timing model training")
+
+    # 2) Ensure reason codes exist (optional but typically needed downstream)
+    if not REASON_CODES_PATH.exists():
+        st.info("Reason codes missing. Generating reason codes...")
+        run_or_stop([sys.executable, "-m", "v2_upgrade.scripts.03_reason_codes"], "Reason codes generation")
+
+    # 3) Build retention table
+    run_or_stop([sys.executable, "-m", "v2_upgrade.scripts.06_build_retention_table_v2"], "Retention table build")
 
     if not RET_TABLE_V2_PATH.exists():
-        st.error("Build script ran but retention_table_v2.csv still not found.")
-        st.code(res.stdout)
+        st.error("Build scripts ran but retention_table_v2.csv still not found.")
         st.stop()
 
     return pd.read_csv(RET_TABLE_V2_PATH)
