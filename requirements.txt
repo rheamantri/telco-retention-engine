@@ -1,9 +1,12 @@
 pandas
 numpy
-scikit-learn
-xgboost
+scikit-learn==1.6.1
+xgboost == 2.1.4
 joblib
 streamlit
-shap
+shap == 0.49.1
 matplotlib
 plotly
+streamlit
+pandas
+numpy
