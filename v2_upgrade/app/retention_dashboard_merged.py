@@ -123,7 +123,14 @@ def load_retention_table():
             st.stop()
         return res
 
-    # 1) Ensure timing models exist
+    
+    # 0) Ensure processed engineered dataset exists
+    engineered_path = V2_ROOT / "data" / "processed" / "telco_engineered.csv"
+    if not engineered_path.exists():
+        st.info("Processed dataset missing. Preparing engineered dataset...")
+        run_or_stop([sys.executable, "-m", "v2_upgrade.scripts.01_prepare_data"], "Data preparation")
+
+    #  1) Ensure timing models exist
     required = [MODELS_DIR / f"timing_model_{w}d.joblib" for w in [30, 60, 90]]
     if not all(p.exists() for p in required):
         st.info("Timing models missing. Training churn timing models (30/60/90d)...")
