@@ -11,8 +11,12 @@ env/
 # Data + artifacts
 v2_upgrade/models/
 v2_upgrade/artifacts/
-v2_upgrade/data/raw/
+# Data
 v2_upgrade/data/processed/
+
+# Ignore raw by default, but allow the one CSV we ship for cloud training
+v2_upgrade/data/raw/*
+!v2_upgrade/data/raw/Churn_Telco.csv
 
 # ML artifacts
 *.joblib
