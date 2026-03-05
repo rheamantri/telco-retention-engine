@@ -105,7 +105,6 @@ def load_test_sets():
     return X, y
 
 @st.cache_data
-@st.cache_data
 def load_retention_table():
     if RET_TABLE_V2_PATH.exists():
         return pd.read_csv(RET_TABLE_V2_PATH)
@@ -160,6 +159,27 @@ def load_reason_codes_if_any():
 def load_global_shap_if_any():
     if GLOBAL_SHAP_PATH.exists():
         return pd.read_csv(GLOBAL_SHAP_PATH)
+
+    st.info("global_shap_importance.csv not found. Computing global SHAP (one-time)...")
+
+    import subprocess, sys
+
+    res = subprocess.run(
+        [sys.executable, "-m", "v2_upgrade.scripts.08_global_shap"],
+        capture_output=True,
+        text=True,
+    )
+
+    if res.returncode != 0:
+        st.warning("Global SHAP computation failed. (App will still run.)")
+        st.code(res.stdout)
+        st.code(res.stderr)
+        return None
+
+    if GLOBAL_SHAP_PATH.exists():
+        return pd.read_csv(GLOBAL_SHAP_PATH)
+
+    st.warning("Global SHAP script ran but global_shap_importance.csv still not found.")
     return None
 
 pipe = load_pipeline()
@@ -254,20 +274,6 @@ if n_crit > 0 and "customerID" in results_df.columns:
 
 results_df["Actual_Churn"] = y_test
 
-'''
-def assign_segment(p):
-    if p >= 0.85:
-        return "🔴 Critical Risk", "Call / Win-Back"
-    elif p >= best_thr:
-        return "🟡 Target Zone", "Send Discount"
-    else:
-        return "🟢 Safe", "No Action"
-
-results_df["Segment"], results_df["Action"] = zip(*results_df["Churn_Prob"].apply(assign_segment))
-'''
-def assign_segment(row):
-    # we will set Segment later after we compute critical set
-    return "🟢 Safe"
 # -----------------------------
 # Merge v2 retention table onto test customers
 # -----------------------------
