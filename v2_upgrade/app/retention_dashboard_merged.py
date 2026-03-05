@@ -11,6 +11,20 @@ import seaborn as sns
 import joblib
 from sklearn.metrics import confusion_matrix, classification_report, precision_recall_curve
 
+# -----------------------------
+# Build status (production-friendly)
+# -----------------------------
+QUIET_BOOT = True  # set False if you want to see step banners in UI
+
+_boot_logs = []
+
+def boot_log(msg: str):
+    _boot_logs.append(msg)
+
+def show_boot_logs():
+    with st.expander("Show initialization logs"):
+        st.code("\n".join(_boot_logs) if _boot_logs else "No logs.", language="text")
+
 def reason_card(title, bucket, impact, body):
     st.markdown(
         f"""
@@ -74,7 +88,7 @@ def load_pipeline():
     if PIPE_PATH.exists():
         return joblib.load(PIPE_PATH)
 
-    st.warning("Model not found. Training churn model on server (one-time)...")
+    boot_log("Model missing → training churn model (one-time)")
 
     # train via your existing v1-style training script inside v2
     import subprocess, sys
@@ -109,7 +123,7 @@ def load_retention_table():
     if RET_TABLE_V2_PATH.exists():
         return pd.read_csv(RET_TABLE_V2_PATH)
 
-    st.warning("retention_table_v2.csv not found. Building v2 retention table on server (one-time)...")
+    boot_log("retention_table_v2.csv not found. Building v2 retention table on server (one-time)...")
 
     import subprocess, sys
 
@@ -126,18 +140,18 @@ def load_retention_table():
     # 0) Ensure processed engineered dataset exists
     engineered_path = V2_ROOT / "data" / "processed" / "telco_engineered.csv"
     if not engineered_path.exists():
-        st.info("Processed dataset missing. Preparing engineered dataset...")
+        boot_log("Processed dataset missing. Preparing engineered dataset...")
         run_or_stop([sys.executable, "-m", "v2_upgrade.scripts.01_prepare_data"], "Data preparation")
 
     #  1) Ensure timing models exist
     required = [MODELS_DIR / f"timing_model_{w}d.joblib" for w in [30, 60, 90]]
     if not all(p.exists() for p in required):
-        st.info("Timing models missing. Training churn timing models (30/60/90d)...")
+        boot_log("Timing models missing. Training churn timing models (30/60/90d)...")
         run_or_stop([sys.executable, "-m", "v2_upgrade.scripts.04_train_churn_timing"], "Timing model training")
 
     # 2) Ensure reason codes exist (optional but typically needed downstream)
     if not REASON_CODES_PATH.exists():
-        st.info("Reason codes missing. Generating reason codes...")
+        boot_log("Reason codes missing. Generating reason codes...")
         run_or_stop([sys.executable, "-m", "v2_upgrade.scripts.03_reason_codes"], "Reason codes generation")
 
     # 3) Build retention table
@@ -160,7 +174,7 @@ def load_global_shap_if_any():
     if GLOBAL_SHAP_PATH.exists():
         return pd.read_csv(GLOBAL_SHAP_PATH)
 
-    st.info("global_shap_importance.csv not found. Computing global SHAP (one-time)...")
+    boot_log("global_shap_importance.csv not found. Computing global SHAP (one-time)...")
 
     import subprocess, sys
 
@@ -171,7 +185,7 @@ def load_global_shap_if_any():
     )
 
     if res.returncode != 0:
-        st.warning("Global SHAP computation failed. (App will still run.)")
+        boot_log("Global SHAP computation failed. (App will still run.)")
         st.code(res.stdout)
         st.code(res.stderr)
         return None
@@ -179,14 +193,17 @@ def load_global_shap_if_any():
     if GLOBAL_SHAP_PATH.exists():
         return pd.read_csv(GLOBAL_SHAP_PATH)
 
-    st.warning("Global SHAP script ran but global_shap_importance.csv still not found.")
+    boot_log("Global SHAP script ran but global_shap_importance.csv still not found.")
     return None
 
-pipe = load_pipeline()
-X_test, y_test = load_test_sets()
-ret_table = load_retention_table()
-rc_df = load_reason_codes_if_any()
-global_shap_df = load_global_shap_if_any()
+with st.spinner("Initializing decision system (one-time boot on fresh server)..."):
+    pipe = load_pipeline()
+    X_test, y_test = load_test_sets()
+    ret_table = load_retention_table()
+    rc_df = load_reason_codes_if_any()
+    global_shap_df = load_global_shap_if_any()
+
+show_boot_logs()
 
 # -----------------------------
 # Sidebar business constraints (v1 style)
@@ -573,7 +590,7 @@ with tab2:
     df = df_v2.copy()
 
     if "customerID" not in df.columns:
-        st.info("No customerID in retention table; drilldown disabled.")
+        boot_log("No customerID in retention table; drilldown disabled.")
         st.stop()
 
     # Pick from the currently filtered table so it never mismatches
@@ -697,14 +714,14 @@ with tab3:
             fig = px.bar(df_top.iloc[::-1], x="mean_abs_shap", y="feature", orientation="h")
             st.plotly_chart(fig, use_container_width=True)
         else:
-            st.info("global_shap_importance.csv not found. Run: python -m v2_upgrade.scripts.08_global_shap")
+            boot_log("global_shap_importance.csv not found. Run: python -m v2_upgrade.scripts.08_global_shap")
 
     with c2:
         st.write("### Reason Codes Preview (test set)")
         if rc_df is not None:
             st.dataframe(rc_df.head(50), use_container_width=True)
         else:
-            st.info("reason_codes_test.csv not found. Run: python -m v2_upgrade.scripts.03_reason_codes")
+            boot_log("reason_codes_test.csv not found. Run: python -m v2_upgrade.scripts.03_reason_codes")
 
     st.divider()
 
@@ -791,4 +808,4 @@ with tab4:
             for i, img in enumerate(imgs):
                 gcols[i % 2].image(str(img), caption=img.name, use_container_width=True)
     else:
-        st.info(f"Figures directory not found: {FIGURES_DIR}")
+        boot_log(f"Figures directory not found: {FIGURES_DIR}")
